@@ -70,6 +70,12 @@ Run every command below from inside the `pqc_hybrid_handshake` folder. The
 first run of any command takes a little longer while the ML-KEM library
 compiles.
 
+To check everything works (19 tests):
+
+```bash
+dart test
+```
+
 ## Demo 1: the handshake, step by step
 
 ```bash
@@ -350,13 +356,7 @@ suite includes this exact case.
 - Clear secret keys and shared secrets from memory as soon as you can;
   Dart offers no guarantees about memory zeroing.
 
-## Running the tests
-
-After [Setup](#setup) and [Get the code](#get-the-code):
-
-```bash
-dart test
-```
+## Tests and platform support
 
 This is a plain Dart package (no Flutter dependency), so use `dart test`,
 not `flutter test`. It can still be used from Flutter apps.
