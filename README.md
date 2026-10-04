@@ -12,12 +12,11 @@ key, which the fixed test vectors verify. The rest of the app (how it
 chooses roles, stores keys, and uses the root key) is not included. The demo
 programs around it run on Linux and macOS, so anyone can try it.
 
-Technically, it is a **hybrid key agreement** inspired by Signal's PQXDH:
+Technically, it is a **hybrid key agreement** using a **cascade combiner**:
 one X25519 exchange plus one ML-KEM-768 encapsulation, bound to a
-length-prefixed handshake transcript and combined with chained HKDF-Extract
-steps into a 32-byte root key. See
-[How it relates to Signal's PQXDH](#how-it-relates-to-signals-pqxdh) for
-the differences.
+length-prefixed handshake transcript and combined through chained
+HKDF-Extract steps into a 32-byte root key. See
+[Design: the cascade combiner](#design-the-cascade-combiner).
 
 > **Status:** tested against fixed known-answer vectors (including RFC 7748)
 > and end-to-end handshake, tamper, and wrong-key tests. This package
@@ -274,40 +273,29 @@ The ML-KEM secret is extracted under a key derived from the X25519 secret,
 so the root key depends on both secrets; neither can be dropped, changed, or
 swapped with the other without changing the output.
 
-## How it relates to Signal's PQXDH
+## Design: the cascade combiner
 
-This design started from Signal's
-[PQXDH](https://signal.org/docs/specifications/pqxdh/), which is why the
-protocol labels contain "pqxdh". It shares PQXDH's core idea but is a
-different, smaller design and is not interoperable with it.
+There are two standard ways to combine a classical and a post-quantum
+secret into one key. **ETSI TS 103 744** (Quantum-safe Hybrid Key
+Establishment) specifies both:
 
-**The same core guarantee.** Both combine a classical X25519 secret with a
-post-quantum ML-KEM secret, so the result stays secret as long as either
-one remains unbroken.
+- **Concatenate (CatKDF):** all secrets are joined into a single KDF
+  input. Signal's [PQXDH](https://signal.org/docs/specifications/pqxdh/)
+  uses this approach.
+- **Cascade (CasKDF):** each secret is fed into its own extraction step,
+  chained through the previous result.
 
-**What differs:**
+This package uses the cascade: the X25519 secret is extracted first, and
+its output keys the extraction of the ML-KEM secret. It is the same
+chained HKDF-Extract pattern as the TLS 1.3 key schedule (RFC 8446). Both
+combiners keep the derived key secret as long as either X25519 or ML-KEM
+remains unbroken.
 
-- **How the secrets are combined.** PQXDH concatenates all of its secrets
-  into one KDF input. This package feeds them through chained HKDF-Extract
-  steps (X25519 first, then ML-KEM keyed by the result), so the output
-  depends on both.
-- **Scope.** PQXDH is a complete protocol: several X25519 operations with
-  identity keys and signed prekeys, which authenticate the parties and let a
-  session start while the other person is offline. This package covers the
-  combining step only: one X25519 exchange and one ML-KEM encapsulation.
-  Identity verification, prekeys, and key lifetimes are left to the
-  application that uses it.
-- **Transcript.** This package binds the root key to an explicit
-  length-prefixed transcript of every public input (see below).
-
-**Why the labels say "pqxdh."** Cryptaverse's first version of this key
-exchange followed PQXDH's approach and concatenated the secrets. It was
-later changed to the chained design described here, and the labels were
-kept. They are part of the derived bytes, so renaming them would change
-every root key and break compatibility with the app; the test vectors pin
-them. A future protocol version would use new labels. The function names,
-which affect no bytes, are neutral: `deriveHybridRoot` here corresponds to
-`_derivePqxdhRoot` in the app.
+Cryptaverse's key exchange originally used the concatenation approach,
+which is where the protocol labels (`cryptaverse-pqxdh-v1`,
+`cryptaverse-root-v1`) come from. They are part of the derived bytes and
+are kept as-is, pinned by the test vectors. The function names use neutral
+names: `deriveHybridRoot` here corresponds to `_derivePqxdhRoot` in the app.
 
 ## Transcript binding
 
@@ -406,3 +394,4 @@ field order, length prefix, or HMAC step makes these tests fail.
 MIT. See [LICENSE](LICENSE). ML-KEM is provided by
 [`mlkem_native`](https://pub.dev/packages/mlkem_native), which wraps
 [mlkem-native](https://github.com/pq-code-package/mlkem-native).
+
