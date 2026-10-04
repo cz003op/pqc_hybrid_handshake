@@ -1,0 +1,21 @@
+name: pqc_hybrid_handshake
+description: >-
+  Hybrid post-quantum key agreement (X25519 + ML-KEM-768) with a
+  length-prefixed handshake transcript and a chained HKDF-Extract root key
+  derivation. Extracted from the Cryptaverse app.
+version: 0.1.0
+repository: https://github.com/cz003op/pqc_hybrid_handshake
+publish_to: none
+
+environment:
+  # mlkem_native 1.0.4 itself requires Dart >= 3.11.1 (it builds its C code
+  # with Dart build hooks).
+  sdk: ^3.11.1
+
+dependencies:
+  cryptography: ^2.9.0
+  mlkem_native: ^1.0.4
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0

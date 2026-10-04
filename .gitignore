@@ -1,0 +1,33 @@
+# Dart / pub
+.dart_tool/
+.packages
+build/
+pubspec.lock
+doc/api/
+
+# IDEs / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Demo outputs and key files (example/file_demo.dart)
+*.key
+*.pub
+*.enc
+*.decrypted*
+
+# Never commit secrets or app config
+*.env
+.env*
+*.jks
+*.keystore
+*.p12
+*.pem
+key.properties
+local.properties
+google-services.json
+GoogleService-Info.plist
+wrangler.toml
+.dev.vars
