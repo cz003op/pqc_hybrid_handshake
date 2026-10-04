@@ -56,7 +56,7 @@ more (for example, fresh keys per message).
 decrypts it in a separate run. The walkthrough below uses Alice (sender),
 Bob (recipient), and Eve (someone who shouldn't get in).
 
-### Quick start
+### Try it yourself
 
 Requires Linux or macOS (on Windows, use WSL2; see
 [Running the tests](#running-the-tests)).
@@ -169,7 +169,7 @@ that person; compare fingerprints with them directly.
 
 This demo is for learning and experimentation: key files are not password-protected, the file format is specific to this example, and Ed25519 is not post-quantum (ML-DSA would be the post-quantum replacement).
 
-## Installation
+## Using it in your own project
 
 This package is not on pub.dev. Add it from GitHub in your `pubspec.yaml`:
 
