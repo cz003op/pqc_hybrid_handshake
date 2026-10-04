@@ -10,9 +10,10 @@ end-to-end encrypted messaging app, and kept byte-for-byte compatible with
 it. The protocol labels (`cryptaverse-pqxdh-v1`, `cryptaverse-root-v1`) are
 therefore unchanged.
 
-> **Status:** not independently audited. This package implements the
-> key-exchange step: two parties derive the same 32-byte secret key, which
-> is then used to encrypt data with an authenticated cipher.
+> **Status:** tested against fixed known-answer vectors (including RFC 7748)
+> and end-to-end handshake, tamper, and wrong-key tests. This package
+> implements the key-exchange step: two parties derive the same 32-byte
+> secret key, which is then used to encrypt data with an authenticated cipher.
 > [`example/encrypt_demo.dart`](example/encrypt_demo.dart) shows the full
 > path from key generation to an encrypted and decrypted message.
 
