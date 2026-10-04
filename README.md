@@ -6,14 +6,18 @@ together end-to-end encrypted messaging and private groups, an encrypted
 file vault, a password manager, encrypted file sharing, and separate private
 and public profiles. Cryptaverse is currently in pre-release.
 
-The key exchange in this package is byte-for-byte the same as the one in
-the app, verified with fixed test vectors. The demo programs around it run
-on Linux and macOS, so anyone can try it.
+The key-derivation functions here are the same ones the app uses: given
+the same inputs, they produce byte-for-byte the same transcript and root
+key, which the fixed test vectors verify. The rest of the app (how it
+chooses roles, stores keys, and uses the root key) is not included. The demo
+programs around it run on Linux and macOS, so anyone can try it.
 
-Technically, it is a **PQXDH-style hybrid key agreement**: one X25519
-exchange plus one ML-KEM-768 encapsulation, bound to a length-prefixed
-handshake transcript and combined with chained HKDF-Extract steps into a
-32-byte root key.
+Technically, it is a **hybrid key agreement** inspired by Signal's PQXDH:
+one X25519 exchange plus one ML-KEM-768 encapsulation, bound to a
+length-prefixed handshake transcript and combined with chained HKDF-Extract
+steps into a 32-byte root key. See
+[How it relates to Signal's PQXDH](#how-it-relates-to-signals-pqxdh) for
+the differences.
 
 > **Status:** tested against fixed known-answer vectors (including RFC 7748)
 > and end-to-end handshake, tamper, and wrong-key tests. This package
@@ -270,6 +274,41 @@ The ML-KEM secret is extracted under a key derived from the X25519 secret,
 so the root key depends on both secrets; neither can be dropped, changed, or
 swapped with the other without changing the output.
 
+## How it relates to Signal's PQXDH
+
+This design started from Signal's
+[PQXDH](https://signal.org/docs/specifications/pqxdh/), which is why the
+protocol labels contain "pqxdh". It shares PQXDH's core idea but is a
+different, smaller design and is not interoperable with it.
+
+**The same core guarantee.** Both combine a classical X25519 secret with a
+post-quantum ML-KEM secret, so the result stays secret as long as either
+one remains unbroken.
+
+**What differs:**
+
+- **How the secrets are combined.** PQXDH concatenates all of its secrets
+  into one KDF input. This package feeds them through chained HKDF-Extract
+  steps (X25519 first, then ML-KEM keyed by the result), so the output
+  depends on both.
+- **Scope.** PQXDH is a complete protocol: several X25519 operations with
+  identity keys and signed prekeys, which authenticate the parties and let a
+  session start while the other person is offline. This package covers the
+  combining step only: one X25519 exchange and one ML-KEM encapsulation.
+  Identity verification, prekeys, and key lifetimes are left to the
+  application that uses it.
+- **Transcript.** This package binds the root key to an explicit
+  length-prefixed transcript of every public input (see below).
+
+**Why the labels say "pqxdh."** Cryptaverse's first version of this key
+exchange followed PQXDH's approach and concatenated the secrets. It was
+later changed to the chained design described here, and the labels were
+kept. They are part of the derived bytes, so renaming them would change
+every root key and break compatibility with the app; the test vectors pin
+them. A future protocol version would use new labels. The function names,
+which affect no bytes, are neutral: `deriveHybridRoot` here corresponds to
+`_derivePqxdhRoot` in the app.
+
 ## Transcript binding
 
 The root key is bound to a transcript of everything that defines the
@@ -306,34 +345,6 @@ and `"a"` + `"bc"` would both serialize to `abc`, so two different
 handshakes could hash identically. With length prefixes the encoding is
 injective: each distinct set of fields produces distinct bytes. The test
 suite includes this exact case.
-
-## PQXDH-style, not PQXDH
-
-This design is inspired by Signal's
-[PQXDH](https://signal.org/docs/specifications/pqxdh/) but is **not** PQXDH
-and is not interoperable with it:
-
-- **Signal's PQXDH** performs three or four X25519 operations (identity key,
-  signed prekey, optional one-time prekey), uses signed prekeys, and
-  concatenates all DH outputs with the KEM secret into a single KDF input.
-- **This package** performs **one** X25519 exchange plus one ML-KEM-768
-  encapsulation, combines them through **chained HKDF-Extract steps**, and
-  binds the result to an explicit length-prefixed transcript.
-
-## Naming
-
-The protocol labels contain "pqxdh" (`cryptaverse-pqxdh-v1` in the
-transcript). That is historical: Cryptaverse's first version of this key
-exchange followed Signal's PQXDH approach and concatenated the X25519 and
-ML-KEM secrets into a single KDF input. It was later changed to the chained
-HKDF-Extract design described above, and the labels were not renamed.
-
-The labels are part of the derived bytes, so changing them would change
-every root key and break compatibility with the app. This package keeps
-them exactly as Cryptaverse uses them; the test vectors pin them. A future
-protocol version would use new labels. The function names, which do not
-affect any bytes, use neutral names: `deriveHybridRoot` here corresponds to
-`_derivePqxdhRoot` in the app.
 
 ## Security notes
 
@@ -395,4 +406,3 @@ field order, length prefix, or HMAC step makes these tests fail.
 MIT. See [LICENSE](LICENSE). ML-KEM is provided by
 [`mlkem_native`](https://pub.dev/packages/mlkem_native), which wraps
 [mlkem-native](https://github.com/pq-code-package/mlkem-native).
-
