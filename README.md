@@ -1,43 +1,77 @@
 # pqc_hybrid_handshake
 
-A small Dart package implementing a **PQXDH-style hybrid key agreement**:
-one X25519 exchange plus one ML-KEM-768 encapsulation, bound to a
-length-prefixed handshake transcript and combined with chained
-HKDF-Extract steps into a 32-byte root key.
+A demonstration of the post-quantum key exchange that runs in
+**Cryptaverse** by JC Laboratories: a privacy-first Android app that brings
+together end-to-end encrypted messaging and private groups, an encrypted
+file vault, a password manager, encrypted file sharing, and separate private
+and public profiles. Cryptaverse is currently in pre-release.
 
-It is extracted from the key exchange in **Cryptaverse**, a privacy-first
-end-to-end encrypted messaging app, and kept byte-for-byte compatible with
-it. The protocol labels (`cryptaverse-pqxdh-v1`, `cryptaverse-root-v1`) are
-therefore unchanged.
+The key exchange in this package is byte-for-byte the same as the one in
+the app, verified with fixed test vectors. The demo programs around it run
+on Linux and macOS, so anyone can try it.
+
+Technically, it is a **PQXDH-style hybrid key agreement**: one X25519
+exchange plus one ML-KEM-768 encapsulation, bound to a length-prefixed
+handshake transcript and combined with chained HKDF-Extract steps into a
+32-byte root key.
 
 > **Status:** tested against fixed known-answer vectors (including RFC 7748)
 > and end-to-end handshake, tamper, and wrong-key tests. This package
 > implements the key-exchange step: two parties derive the same 32-byte
 > secret key, which is then used to encrypt data with an authenticated cipher.
-> [`example/encrypt_demo.dart`](example/encrypt_demo.dart) shows the full
-> path from key generation to an encrypted and decrypted message.
 
-## API
+## Setup
 
-| Function | Purpose |
-| --- | --- |
-| `x25519GenerateKeyPair()` | Fresh X25519 key pair (raw bytes) |
-| `x25519SharedSecret(ourPriv, ourPub, theirPub)` | 32-byte X25519 shared secret |
-| `mlkemGenerateKeyPair()` | Fresh ML-KEM-768 key pair (1184-byte public, 2400-byte secret) |
-| `mlkemEncapsulate(recipientPub)` | Returns `(sharedSecret, ciphertext)` (32 / 1088 bytes) |
-| `mlkemDecapsulate(ciphertext, secretKey)` | Returns the 32-byte shared secret |
-| `buildTranscript(...)` | Length-prefixed transcript of both parties' public material |
-| `deriveHybridRoot(ssDH:, ssKEM:, transcript:)` | 32-byte hybrid root key |
-| `encodeB64url` / `decodeB64url` | Canonical unpadded base64url used in the transcript |
+You need the **Dart SDK 3.11.1 or newer** and a **C compiler** (the ML-KEM
+library is compiled from C the first time you run anything).
 
-The functions are pure: no storage, networking, or platform code.
+**Ubuntu / Debian:**
 
-## Demo
+```bash
+sudo apt update && sudo apt install -y clang wget gpg
+wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/dart.gpg
+echo 'deb [signed-by=/usr/share/keyrings/dart.gpg arch=amd64] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main' | sudo tee /etc/apt/sources.list.d/dart_stable.list
+sudo apt update && sudo apt install -y dart
+echo 'export PATH="$PATH:/usr/lib/dart/bin"' >> ~/.bashrc && source ~/.bashrc
+dart --version
+```
+
+**macOS:**
+
+```bash
+xcode-select --install
+brew tap dart-lang/dart
+brew install dart
+dart --version
+```
+
+**Windows:** the ML-KEM library does not build natively on Windows (see
+[Platform support](#platform-support)). Install WSL2 with Ubuntu from an
+administrator PowerShell, then follow the Ubuntu steps inside it:
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+Other systems: see [dart.dev/get-dart](https://dart.dev/get-dart).
+
+## Get the code
+
+```bash
+git clone https://github.com/cz003op/pqc_hybrid_handshake.git
+cd pqc_hybrid_handshake
+dart pub get
+```
+
+Run every command below from inside the `pqc_hybrid_handshake` folder. The
+first run of any command takes a little longer while the ML-KEM library
+compiles.
+
+## Demo 1: the handshake, step by step
 
 ```bash
 dart run example/encrypt_demo.dart
 dart run example/encrypt_demo.dart "your own message"
-dart run example/encrypt_demo.dart --file notes.txt
 ```
 
 It prints every step: both parties' keys, the ML-KEM ciphertext, the
@@ -50,24 +84,11 @@ HKDF-SHA256 and encrypts with ChaCha20-Poly1305. It illustrates how a root
 key is used; it is not part of the package API, and a real messenger needs
 more (for example, fresh keys per message).
 
-## File encryption demo
+## Demo 2: encrypt and sign a file
 
 `example/file_demo.dart` encrypts a file to a recipient, signs it, and
-decrypts it in a separate run. The walkthrough below uses Alice (sender),
-Bob (recipient), and Eve (someone who shouldn't get in).
-
-### Try it yourself
-
-Requires Linux or macOS (on Windows, use WSL2; see
-[Running the tests](#running-the-tests)).
-
-```bash
-git clone https://github.com/cz003op/pqc_hybrid_handshake.git
-cd pqc_hybrid_handshake
-dart pub get
-```
-
-Run every command below from inside the `pqc_hybrid_handshake` folder.
+decrypts it in a separate run. The walkthrough uses Alice (sender), Bob
+(recipient), and Eve (someone who shouldn't get in).
 
 ### 1. Write a message
 
@@ -167,7 +188,9 @@ A valid signature proves the file came from whoever holds the sender's
 `.key` file. It does not prove the `.pub` file you were given belongs to
 that person; compare fingerprints with them directly.
 
-This demo is for learning and experimentation: key files are not password-protected, the file format is specific to this example, and Ed25519 is not post-quantum (ML-DSA would be the post-quantum replacement).
+This demo is for learning and experimentation: key files are not
+password-protected, the file format is specific to this example, and
+Ed25519 is not post-quantum (ML-DSA would be the post-quantum replacement).
 
 ## Using it in your own project
 
@@ -186,6 +209,23 @@ Then run `dart pub get` (or `flutter pub get`) and import it:
 ```dart
 import 'package:pqc_hybrid_handshake/pqc_hybrid_handshake.dart';
 ```
+
+### API
+
+| Function | Purpose |
+| --- | --- |
+| `x25519GenerateKeyPair()` | Fresh X25519 key pair (raw bytes) |
+| `x25519SharedSecret(ourPriv, ourPub, theirPub)` | 32-byte X25519 shared secret |
+| `mlkemGenerateKeyPair()` | Fresh ML-KEM-768 key pair (1184-byte public, 2400-byte secret) |
+| `mlkemEncapsulate(recipientPub)` | Returns `(sharedSecret, ciphertext)` (32 / 1088 bytes) |
+| `mlkemDecapsulate(ciphertext, secretKey)` | Returns the 32-byte shared secret |
+| `buildTranscript(...)` | Length-prefixed transcript of both parties' public material |
+| `deriveHybridRoot(ssDH:, ssKEM:, transcript:)` | 32-byte hybrid root key |
+| `encodeB64url` / `decodeB64url` | Canonical unpadded base64url used in the transcript |
+
+The functions are pure: no storage, networking, or platform code. See
+[`example/example.dart`](example/example.dart) for both sides of the
+handshake in a few lines.
 
 ## Protocol
 
@@ -215,8 +255,6 @@ step extracts the X25519 secret with an all-zero salt, the second extracts
 the ML-KEM secret using the first result as the salt, and the last line is
 the first output block of `HKDF-Expand(temp2, info, 32)` with
 `info = "cryptaverse-root-v1" || transcript`.
-
-See [`example/example.dart`](example/example.dart) for both sides in code.
 
 ## Why hybrid
 
@@ -299,7 +337,7 @@ affect any bytes, use neutral names: `deriveHybridRoot` here corresponds to
 
 ## Security notes
 
-- **No authentication inside this package.** The parties are only as
+- **No authentication inside the key exchange.** The parties are only as
   authentic as the public keys and fingerprints you feed in. Verify them out
   of band (QR code, safety-number comparison, etc.).
 - **Forward secrecy depends on key lifetimes.** If both X25519 keys are
@@ -315,19 +353,10 @@ affect any bytes, use neutral names: `deriveHybridRoot` here corresponds to
 
 ## Running the tests
 
-Requirements:
-
-- Dart SDK **3.11.1 or newer** (on its own or bundled with Flutter). This is
-  required by `mlkem_native` 1.0.4.
-- A C compiler. `mlkem_native` compiles its C code at test/run time using
-  Dart build hooks: **clang** on Linux, Xcode Command Line Tools on macOS.
+After [Setup](#setup) and [Get the code](#get-the-code):
 
 ```bash
-dart pub get
 dart test
-dart run example/example.dart
-dart run example/encrypt_demo.dart
-dart run example/file_demo.dart keygen alice
 ```
 
 This is a plain Dart package (no Flutter dependency), so use `dart test`,
@@ -337,17 +366,16 @@ not `flutter test`. It can still be used from Flutter apps.
 
 | Platform | Status |
 | --- | --- |
-| Linux x64 | Supported. Needs `clang` (`sudo apt install clang`). |
+| Linux x64 | Supported. Needs `clang`. |
 | macOS | Expected to work with Xcode Command Line Tools. |
 | Windows | **Not working natively with mlkem_native 1.0.4** (see below). Use WSL2. |
 | Android / iOS | Works inside a Flutter app (as in Cryptaverse). |
 
 **Windows:** `mlkem_native` 1.0.4's build hook passes GCC/Clang-only flags
-(such as `-Wextra` and `-Werror`) and a GNU-syntax assembly file (`.S`) to
-the MSVC compiler `cl.exe`, and does not link `bcrypt.lib`, which its
-Windows RNG needs. The native build is therefore expected to fail on Windows
-even though the package's README lists Windows as supported. Run the tests
-under **WSL2 (Ubuntu)** instead, which uses the Linux path.
+(such as `-Wextra` and `-Werror`) to the MSVC compiler `cl.exe`, which
+rejects them (`D8021: invalid numeric argument '/Wextra'`). It also passes a
+GNU-syntax assembly file (`.S`) and does not link `bcrypt.lib`, which its
+Windows RNG needs. Run everything under **WSL2 (Ubuntu)** instead.
 
 ### Test vectors
 
