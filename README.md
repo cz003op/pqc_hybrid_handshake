@@ -166,10 +166,7 @@ A valid signature proves the file came from whoever holds the sender's
 `.key` file. It does not prove the `.pub` file you were given belongs to
 that person; compare fingerprints with them directly.
 
-This is a demo: key files are not password-protected, the file format is
-specific to this example, Ed25519 is not post-quantum (ML-DSA would be the
-post-quantum replacement), and none of it has been audited. For real
-secrets use an established tool such as [age](https://age-encryption.org).
+This demo is for learning and experimentation: key files are not password-protected, the file format is specific to this example, and Ed25519 is not post-quantum (ML-DSA would be the post-quantum replacement).
 
 ## Installation
 
